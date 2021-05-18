@@ -1,0 +1,15 @@
+@startmindmap main
+* Babel
+** Babel 是什么
+** Babel 解决了什么问题
+** Babel 的工作原理
+*** Presets
+**** @babel/preset-env
+***** @babel/runtime
+***** @babel/polyfill
+****** @babel/plugin-transform-runtime
+***** polyfill 与 useBuiltIns 配合才能自动生效，不然自能手动引入
+**** @babel/preset-react
+**** @babel/preset-flow
+**** @babel/preset-typescript
+@endmindmap
