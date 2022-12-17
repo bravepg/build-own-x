@@ -16,19 +16,43 @@
     const element = {
       type: 'div',
       props: {
-        id: 'div',
-        children: [{
-          type: 'h1',
-          props: {
-            children: [{
-              type: TEXT_ELEMENT,
-              props: {
-                nodeValue: 'Hello, React!',
-                children: [],
-              },
-            }],
+        children: [
+          {
+            type: 'h1',
+            props: {
+              children: [{
+                type: 'p',
+                props: {
+                  children: [{
+                    type: TEXT_ELEMENT,
+                    props: {
+                      nodeValue: 'Hello, React!',
+                      children: [],
+                    },
+                  }]
+                },
+              }],
+            },
           },
-        }]
+          {
+            type: 'h2',
+            props: {
+              children: [{
+                type: 'a',
+                props: {
+                  href: 'https://pomb.us/build-your-own-react/',
+                  children: [{
+                    type: TEXT_ELEMENT,
+                    props: {
+                      nodeValue: 'build your own react',
+                      children: [],
+                    },
+                  }]
+                },
+              }],
+            },
+          }
+        ]
       }
     }
 
