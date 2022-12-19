@@ -30,29 +30,75 @@ function createElement(type, config, ...children) {
 function createDom(fiber) {
   const dom = fiber.type === TEXT_ELEMENT ? document.createTextNode('') : document.createElement(fiber.type);
 
-  const isProperty = (key) => key !== 'children';
-  Object.keys(fiber.props)
-    .filter(isProperty)
-    .forEach((key) => {
-      dom[key] = fiber.props[key];
-    });
+  updateDom(dom, {}, fiber.props);  
   
   return dom;
 }
 
+const isEvent = (key) => key.startsWith('on');
+const isProperty = (key) => key !== 'children' && !isEvent(key);
+const isNew = (prev, next) => (key) => prev[key] !== next[key];
+const isGone = (prev, next) => (key) => !(key in next);
+
+function updateDom(dom, prevProps, nextProps) {
+  // remove old or changed event listeners
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter((key) => isNew(prevProps, nextProps)(key) || isGone(prevProps, nextProps)(key))
+    .forEach((name) => {
+      const eventType = name.toLowerCase().substring(2);
+      document.removeEventListener(eventType, prevProps[name]);
+    });
+
+  // remove old properties
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach((name) => {
+      dom[name] = '';
+    });
+  
+  // set new or changed properties
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew(prevProps, nextProps))
+    .forEach((name) => {
+      dom[name] = nextProps[name];
+    });
+  
+  // add event listerners
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach((name) => {
+      const eventType = name.toLowerCase().substring(2);
+      document.addEventListener(eventType, nextProps[name]);
+    });
+}
+
 function commitRoot() {
+  console.log('deletions', deletions, wipRoot)
+  deletions.forEach((fiber) => commitWork(fiber, `${fiber.type} deletion`));
   commitWork(wipRoot.child);
+  currentRoot = wipRoot;
   wipRoot = null;
 }
 
-function commitWork(fiber, message) {
-  console.log('commitWork --- ', message);
+function commitWork(fiber, message = 'initial') {
+  console.log('commitWork --- ', fiber, message);
   if (!fiber) {
     return;
   }
 
   const domParent = fiber.parent.dom;
-  domParent.appendChild(fiber.dom);
+  if (fiber.effectTag === 'PLACEMENT' && fiber.dom) {
+    domParent.appendChild(fiber.dom);
+  } else if (fiber.effectTag === 'UPDATE' && fiber.dom) {
+    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
+  } else if (fiber.effectTag === 'DELETION') {
+    domParent.removeChild(fiber.dom);
+  }
+
   commitWork(fiber.child, `${fiber.type} child`);
   commitWork(fiber.sibling, `${fiber.type} sibling`);
 }
@@ -63,13 +109,17 @@ function render(element, container) {
     props: {
       children: [element],
     },
+    alternate: currentRoot,
   };
 
+  deletions = [];
   nextUnitOfWork = wipRoot;
 }
 
 let nextUnitOfWork = null;
+let currentRoot = null;
 let wipRoot = null;
+let deletions = null;
 
 function workLoop(deadline) {
   let shouldYield = false;
@@ -96,28 +146,8 @@ function performUnitOfWork(fiber) {
   }
 
   const elements = fiber.props.children;
-  let index = 0;
-  let prevSibling = null;
 
-  while (index < elements.length) {
-    const element = elements[index]
-
-    const newFiber = {
-      type: element.type,
-      props: element.props,
-      parent: fiber,
-      dom: null,
-    };
-
-    if (index === 0) {
-      fiber.child = newFiber;
-    } else {
-      prevSibling.sibling = newFiber;
-    }
-
-    prevSibling = newFiber;
-    index++;
-  }
+  reconcileChildren(fiber, elements);
 
   if (fiber.child) {
     return fiber.child;
@@ -130,6 +160,64 @@ function performUnitOfWork(fiber) {
     }
 
     nextFiber = nextFiber.parent;
+  }
+}
+
+function reconcileChildren(wipFiber, elements) {
+  let index = 0;
+  let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
+  let prevSibling = null;
+
+  while (index < elements.length || oldFiber != null) {
+    const element = elements[index];
+    let newFiber = null;
+
+    const sameType = oldFiber && element && element.type === oldFiber.type;
+
+    if (sameType) {
+      // update the node
+      newFiber = {
+        type: oldFiber.type, // oldFiber.type === element.type
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: 'UPDATE',
+      };
+    }
+
+    if (element && !sameType) {
+      // add this node
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: 'PLACEMENT',
+      };
+    }
+
+    if (oldFiber && !sameType) {
+      // delete the oldFiber's node
+      oldFiber.effectTag = 'DELETION';
+      deletions.push(oldFiber);
+    }
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
+    }
+
+    if (index === 0) {
+      wipFiber.child = newFiber;
+    // 为什么 element 需要存在，才能执行下面的
+    // 因为在删除的场景下，newFiber 不存在，也就是 prevSibling 会为 null
+    } else if (element) {
+      prevSibling.sibling = newFiber;
+    }
+
+    prevSibling = newFiber;
+    index++;
   }
 }
 

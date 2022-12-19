@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script src="./index.js"></script>
+  <script>
+    const container = document.getElementById('app');
+
+    const handleChangeValue = e => {
+      rerender(e.target.value)
+    }
+
+    const rerender = (value) => {
+      let element = MyReact.createElement('div', null,
+        MyReact.createElement('input', { value, onInput: handleChangeValue }),
+        MyReact.createElement('h2', null, `Hello ${value}`),
+        MyReact.createElement('h3', null, '当 value = World1 会被删除'),
+      );
+
+      if (value === 'World1') {
+        element = MyReact.createElement('div', null,
+          MyReact.createElement('input', { value, onInput: handleChangeValue }),
+          MyReact.createElement('h2', null, `Hello ${value}`),
+        );
+      }
+
+      MyReact.render(element, container);
+    }
+
+    rerender('World');
+  </script>
+</body>
+
+</html>
