@@ -30,8 +30,8 @@ function createElement(type, config, ...children) {
 function createDom(fiber) {
   const dom = fiber.type === TEXT_ELEMENT ? document.createTextNode('') : document.createElement(fiber.type);
 
-  updateDom(dom, {}, fiber.props);  
-  
+  updateDom(dom, {}, fiber.props);
+
   return dom;
 }
 
@@ -57,7 +57,7 @@ function updateDom(dom, prevProps, nextProps) {
     .forEach((name) => {
       dom[name] = '';
     });
-  
+
   // set new or changed properties
   Object.keys(nextProps)
     .filter(isProperty)
@@ -65,7 +65,7 @@ function updateDom(dom, prevProps, nextProps) {
     .forEach((name) => {
       dom[name] = nextProps[name];
     });
-  
+
   // add event listerners
   Object.keys(nextProps)
     .filter(isEvent)
@@ -90,17 +90,35 @@ function commitWork(fiber, message = 'initial') {
     return;
   }
 
-  const domParent = fiber.parent.dom;
+  let domParentFiber = fiber.parent;
+  while (!domParentFiber.dom) {
+    domParentFiber = domParentFiber.parent;
+  }
+  const domParent = domParentFiber.dom;
+
   if (fiber.effectTag === 'PLACEMENT' && fiber.dom) {
     domParent.appendChild(fiber.dom);
   } else if (fiber.effectTag === 'UPDATE' && fiber.dom) {
     updateDom(fiber.dom, fiber.alternate.props, fiber.props);
   } else if (fiber.effectTag === 'DELETION') {
-    domParent.removeChild(fiber.dom);
+    commitDeletion(fiber, domParent);
   }
 
   commitWork(fiber.child, `${fiber.type} child`);
   commitWork(fiber.sibling, `${fiber.type} sibling`);
+}
+
+function commitDeletion(fiber, domParent) {
+  if (fiber.dom) {
+    // TODO 目前来说，通过这种手段处理函数存在问题
+    // 那就是不存在更新的阶段，从而导致 demo 中的焦点丢失
+    // setTimeout(() => {
+    domParent.removeChild(fiber.dom);
+    // }, 0);
+
+  } else {
+    commitDeletion(fiber.child, domParent);
+  }
 }
 
 function render(element, container) {
@@ -141,13 +159,12 @@ requestIdleCallback(workLoop);
 
 function performUnitOfWork(fiber) {
   console.log('fiber', fiber);
-  if (!fiber.dom) {
-    fiber.dom = createDom(fiber);
+  const isFunctionComponent = fiber.type instanceof Function;
+  if (isFunctionComponent) {
+    updateFunctionComponent(fiber);
+  } else {
+    updateHostComponent(fiber);
   }
-
-  const elements = fiber.props.children;
-
-  reconcileChildren(fiber, elements);
 
   if (fiber.child) {
     return fiber.child;
@@ -161,6 +178,20 @@ function performUnitOfWork(fiber) {
 
     nextFiber = nextFiber.parent;
   }
+}
+
+function updateFunctionComponent(fiber) {
+  const children = [fiber.type(fiber.props)];
+
+  reconcileChildren(fiber, children);
+}
+
+function updateHostComponent(fiber) {
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber);
+  }
+
+  reconcileChildren(fiber, fiber.props.children);
 }
 
 function reconcileChildren(wipFiber, elements) {
@@ -210,8 +241,8 @@ function reconcileChildren(wipFiber, elements) {
 
     if (index === 0) {
       wipFiber.child = newFiber;
-    // 为什么 element 需要存在，才能执行下面的
-    // 因为在删除的场景下，newFiber 不存在，也就是 prevSibling 会为 null
+      // 为什么 element 需要存在，才能执行下面的
+      // 因为在删除的场景下，newFiber 不存在，也就是 prevSibling 会为 null
     } else if (element) {
       prevSibling.sibling = newFiber;
     }
