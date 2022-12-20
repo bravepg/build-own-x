@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script src="./index.js"></script>
+  <script>
+    const container = document.getElementById('app');
+
+
+    const rerender = () => {
+      function App() {
+        const [state, setState] = MyReact.useState(1);
+
+        return MyReact.createElement('div', null,
+          MyReact.createElement('div', null, `值：${state}`),
+          MyReact.createElement('button', {
+            onClick: (e) => {
+              if (e.target.tagName === 'BUTTON') {
+                setState((state) => state + 1)
+              }
+            },
+          }, '点击加 1'),
+        );
+      }
+
+
+      const element = MyReact.createElement(App, null);
+
+      MyReact.render(element, container);
+    }
+
+    rerender('World');
+  </script>
+</body>
+
+</html>
